@@ -29,4 +29,9 @@ public class TeamController {
     public ResponseEntity<Map<String, Object>> getOneTeam(@PathVariable Long id){
         return ResponseEntity.ok(teamService.getOneTeam(id));
     }
+
+    @DeleteMapping("/team/{id}")
+    public ResponseEntity<Map<String, Object>> deleteTeam(@PathVariable Long id){
+        return ResponseEntity.ok(teamService.deleteTeam(id));
+    }
 }

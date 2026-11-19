@@ -25,7 +25,7 @@ public class TeamService {
 
         map.put("code",200);
         map.put("data",team);
-        map.put("message","등록완료");
+        map.put("message","등록 완료");
         return map;
     }
 
@@ -42,6 +42,14 @@ public class TeamService {
         Optional<Team> teams = teamRepository.findById(id);
         map.put("code",200);
         map.put("data",teams);
+        return map;
+    }
+
+    public Map<String, Object> deleteTeam(Long id) {
+        Map<String,Object> map = new HashMap<>();
+        teamRepository.deleteById(id);
+        map.put("code",200);
+        map.put("message","삭제 완료");
         return map;
     }
 }
