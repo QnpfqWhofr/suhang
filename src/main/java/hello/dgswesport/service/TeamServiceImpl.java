@@ -4,7 +4,6 @@ import hello.dgswesport.domain.entity.Team;
 import hello.dgswesport.domain.entity.User;
 import hello.dgswesport.domain.repository.TeamRepository;
 import hello.dgswesport.domain.repository.UserRepository;
-import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.global.exception.BusinessException;
@@ -25,17 +24,24 @@ public class TeamServiceImpl implements TeamService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
 
+    // 한 팀의 인원. 5대5 게임 기준이다.
+    private static final int TEAM_SIZE = 5;
+    // 팀 간 균형을 맞추려면 팀이 2개 이상이어야 한다.
+    private static final int MIN_TEAM_COUNT = 2;
+
     @Override
     @Transactional
-    public List<TeamResponse> teamRegister(TeamAssignRequest request){
-        int teamCount = request.teamCount();
+    public List<TeamResponse> teamRegister(){
         if (teamRepository.count() > 0) {
             throw new BusinessException(ErrorCode.TEAMS_ALREADY_EXIST);
         }
-        List<User> users = userRepository.findByTeamIsNullOrderById();
-        if (users.size() < teamCount) {
+        List<User> unassigned = userRepository.findByTeamIsNullOrderById();
+        int teamCount = unassigned.size() / TEAM_SIZE;
+        if (teamCount < MIN_TEAM_COUNT) {
             throw new BusinessException(ErrorCode.NOT_ENOUGH_USERS);
         }
+        // 5명 단위로 나누어떨어지는 인원까지만 등록 순서대로 배정하고, 남는 인원은 미배정으로 둔다.
+        List<User> users = unassigned.subList(0, teamCount * TEAM_SIZE);
 
         List<Team> teams = new ArrayList<>();
         for (int i = 1; i <= teamCount; i++) {

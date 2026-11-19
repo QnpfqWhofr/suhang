@@ -1,7 +1,6 @@
 package hello.dgswesport.controller;
 
 import hello.dgswesport.domain.entity.Tier;
-import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.dto.UserResponse;
@@ -46,17 +45,13 @@ class TeamControllerTest {
     private TeamService teamService;
 
     @Test
-    @DisplayName("팀 자동 배정을 요청하면 201과 생성된 팀 목록을 응답한다")
+    @DisplayName("팀 자동 배정을 요청하면 본문 없이도 201과 생성된 팀 목록을 응답한다")
     void teamRegister() throws Exception {
         // given
-        given(teamService.teamRegister(any(TeamAssignRequest.class))).willReturn(List.of(TEAM_1, TEAM_2));
+        given(teamService.teamRegister()).willReturn(List.of(TEAM_1, TEAM_2));
 
         // when & then
-        mockMvc.perform(post("/team")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"teamCount": 2}
-                                """))
+        mockMvc.perform(post("/team"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value(201))
                 .andExpect(jsonPath("$.data.length()").value(2))
@@ -66,53 +61,29 @@ class TeamControllerTest {
     }
 
     @Test
-    @DisplayName("팀 수가 2보다 작으면 400을 응답하고 서비스를 호출하지 않는다")
-    void teamRegisterWithTooFewTeams() throws Exception {
-        mockMvc.perform(post("/team")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"teamCount": 1}
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
-                .andExpect(jsonPath("$.errors[0].field").value("teamCount"))
-                .andExpect(jsonPath("$.errors[0].message").value("팀 수는 2 이상이어야 합니다."));
-
-        verify(teamService, never()).teamRegister(any());
-    }
-
-    @Test
     @DisplayName("이미 팀이 있으면 409를 응답한다")
     void teamRegisterWhenTeamsExist() throws Exception {
         // given
-        given(teamService.teamRegister(any(TeamAssignRequest.class)))
-                .willThrow(new BusinessException(ErrorCode.TEAMS_ALREADY_EXIST));
+        given(teamService.teamRegister()).willThrow(new BusinessException(ErrorCode.TEAMS_ALREADY_EXIST));
 
         // when & then
-        mockMvc.perform(post("/team")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"teamCount": 2}
-                                """))
+        mockMvc.perform(post("/team"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("TEAMS_ALREADY_EXIST"));
     }
 
     @Test
-    @DisplayName("참가자가 팀 수보다 적으면 400을 응답한다")
+    @DisplayName("참가자가 10명보다 적으면 400을 응답한다")
     void teamRegisterWithNotEnoughUsers() throws Exception {
         // given
-        given(teamService.teamRegister(any(TeamAssignRequest.class)))
-                .willThrow(new BusinessException(ErrorCode.NOT_ENOUGH_USERS));
+        given(teamService.teamRegister()).willThrow(new BusinessException(ErrorCode.NOT_ENOUGH_USERS));
 
         // when & then
-        mockMvc.perform(post("/team")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"teamCount": 8}
-                                """))
+        mockMvc.perform(post("/team"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("NOT_ENOUGH_USERS"));
+                .andExpect(jsonPath("$.code").value("NOT_ENOUGH_USERS"))
+                .andExpect(jsonPath("$.message")
+                        .value("팀을 2개 이상 만들려면 팀에 배정되지 않은 참가자가 10명 이상 필요합니다."));
     }
 
     @Test
@@ -171,6 +142,22 @@ class TeamControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("알파"));
+    }
+
+    @Test
+    @DisplayName("팀 이름이 비어 있으면 400을 응답하고 서비스를 호출하지 않는다")
+    void updateTeamWithBlankName() throws Exception {
+        mockMvc.perform(put("/team/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": " "}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.errors[0].field").value("name"))
+                .andExpect(jsonPath("$.errors[0].message").value("팀 이름은 필수입니다."));
+
+        verify(teamService, never()).updateTeam(any(), any());
     }
 
     @Test

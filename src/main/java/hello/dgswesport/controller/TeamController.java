@@ -1,6 +1,5 @@
 package hello.dgswesport.controller;
 
-import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.global.response.ApiResponse;
@@ -19,10 +18,10 @@ public class TeamController {
 
     private final TeamService teamService;
 
-    // 팀에 배정되지 않은 참가자를 teamCount개의 팀으로 자동 배정한다.
+    // 팀에 배정되지 않은 참가자를 5명씩 자동 배정한다. 요청 본문은 받지 않는다.
     @PostMapping("/team")
-    public ResponseEntity<ApiResponse<List<TeamResponse>>> teamRegister(@Valid @RequestBody TeamAssignRequest request){
-        List<TeamResponse> response = teamService.teamRegister(request);
+    public ResponseEntity<ApiResponse<List<TeamResponse>>> teamRegister(){
+        List<TeamResponse> response = teamService.teamRegister();
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
