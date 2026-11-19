@@ -138,7 +138,7 @@ class UserServiceImplTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
 
         // when
-        UserResponse response = userService.updateUser(1L, new UserUpdateRequest("홍길순", "NewHong", Tier.DIAMOND));
+        UserResponse response = userService.updateUser(1L, new UserUpdateRequest("홍길순", "NewHong", Tier.DIAMOND, null));
 
         // then
         assertThat(response.name()).isEqualTo("홍길순");

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -20,6 +21,9 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserServiceImpl implements UserService {
+
+    // 회원가입 DTO의 @Size(min = 8)과 같은 기준이다.
+    private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -30,6 +34,7 @@ public class UserServiceImpl implements UserService {
         if (userRepository.existsByStudentNum(request.studentNum())) {
             throw new BusinessException(ErrorCode.DUPLICATE_STUDENT_NUM);
         }
+        // 원본 비밀번호는 저장하지 않고 암호화한 값만 저장한다.
         User user = User.builder()
                 .studentNum(request.studentNum())
                 .name(request.name())
@@ -69,9 +74,14 @@ public class UserServiceImpl implements UserService {
     public UserResponse updateUser(Long id, UserUpdateRequest request) {
         User user = findUser(id);
         // 변경 감지로 트랜잭션 종료 시점에 UPDATE가 실행된다.
-        user.setName(request.name());
-        user.setGameNickname(request.gameNickname());
-        user.setTier(request.tier());
+        user.updateProfile(request.name(), request.gameNickname(), request.tier());
+        // 비밀번호는 값이 들어온 경우에만 바꾼다. 비어 있으면 변경 요청이 아닌 것으로 본다.
+        if (StringUtils.hasText(request.password())) {
+            if (request.password().length() < MIN_PASSWORD_LENGTH) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT, "비밀번호는 8자 이상이어야 합니다.");
+            }
+            user.updatePassword(passwordEncoder.encode(request.password()));
+        }
         return UserResponse.from(user);
     }
 

@@ -18,13 +18,13 @@ public class User {
     private Long id;
 
     // 로그인에 쓰는 값이라 중복을 허용하지 않는다.
-    @Column(name = "student_num", nullable = false, unique = true)
+    @Column(name = "student_num", nullable = false, unique = true, length = 30)
     private String studentNum;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private String gameNickname;
 
     @Enumerated(EnumType.STRING)
@@ -41,4 +41,16 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
     private Team team;
+
+    // 공개 프로필 정보(이름, 게임 닉네임, 티어)를 수정한다.
+    public void updateProfile(String name, String gameNickname, Tier tier) {
+        this.name = name;
+        this.gameNickname = gameNickname;
+        this.tier = tier;
+    }
+
+    // 이미 암호화된 새 비밀번호로 교체한다. 평문을 넘기지 않는다.
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
