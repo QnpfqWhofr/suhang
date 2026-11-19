@@ -18,17 +18,6 @@ class TeamRepositoryTest {
     private TeamRepository teamRepository;
 
     @Test
-    @DisplayName("이름으로 팀 존재 여부를 확인한다")
-    void existsByName() {
-        // given
-        teamRepository.save(team("알파"));
-
-        // when & then
-        assertThat(teamRepository.existsByName("알파")).isTrue();
-        assertThat(teamRepository.existsByName("베타")).isFalse();
-    }
-
-    @Test
     @DisplayName("자기 자신을 제외하고 같은 이름의 팀이 있는지 확인한다")
     void existsByNameAndIdNot() {
         // given

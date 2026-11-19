@@ -2,16 +2,18 @@ package hello.dgswesport.service;
 
 import hello.dgswesport.domain.entity.Team;
 import hello.dgswesport.domain.entity.Tier;
+import hello.dgswesport.domain.entity.User;
 import hello.dgswesport.domain.repository.TeamRepository;
+import hello.dgswesport.domain.repository.UserRepository;
+import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
-import hello.dgswesport.dto.UserRequest;
-import hello.dgswesport.dto.UserResponse;
 import hello.dgswesport.global.exception.BusinessException;
 import hello.dgswesport.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -34,64 +37,72 @@ class TeamServiceImplTest {
     @Mock
     private TeamRepository teamRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private TeamServiceImpl teamService;
 
     @Test
-    @DisplayName("팀과 선수를 등록하면 등록된 팀 정보를 반환한다")
+    @DisplayName("미배정 참가자를 팀 수만큼 나눠 배정하고 팀별 평균 점수를 반환한다")
     void teamRegister() {
-        // given
-        given(teamRepository.existsByName("알파")).willReturn(false);
-        TeamRequest request = new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", Tier.GOLD)));
+        // given: 점수 10, 7, 4, 1
+        List<User> users = List.of(user(Tier.CHALLENGER), user(Tier.DIAMOND), user(Tier.GOLD), user(Tier.IRON));
+        given(teamRepository.count()).willReturn(0L);
+        given(userRepository.findByTeamIsNullOrderById()).willReturn(users);
 
         // when
-        TeamResponse response = teamService.teamRegister(request);
+        List<TeamResponse> responses = teamService.teamRegister(new TeamAssignRequest(2));
 
-        // then
-        assertThat(response.name()).isEqualTo("알파");
-        assertThat(response.users()).extracting(UserResponse::name).containsExactly("홍길동");
-        verify(teamRepository).save(any(Team.class));
+        // then: (10, 1)과 (7, 4)로 나뉘어 두 팀 평균이 같다
+        assertThat(responses).extracting(TeamResponse::name).containsExactly("1팀", "2팀");
+        assertThat(responses).extracting(TeamResponse::averageScore).containsExactly(5.5, 5.5);
+        assertThat(users).allSatisfy(user -> assertThat(user.getTeam()).isNotNull());
+        verify(teamRepository).saveAll(any());
     }
 
     @Test
-    @DisplayName("선수 목록 없이 등록하면 선수가 없는 팀이 등록된다")
-    void teamRegisterWithoutUsers() {
+    @DisplayName("이미 팀이 있으면 예외가 발생하고 팀을 만들지 않는다")
+    void teamRegisterWhenTeamsExist() {
         // given
-        given(teamRepository.existsByName("알파")).willReturn(false);
-
-        // when
-        TeamResponse response = teamService.teamRegister(new TeamRequest("알파", null));
-
-        // then
-        assertThat(response.users()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("이미 있는 이름으로 등록하면 예외가 발생하고 저장하지 않는다")
-    void teamRegisterWithDuplicateName() {
-        // given
-        given(teamRepository.existsByName("알파")).willReturn(true);
+        given(teamRepository.count()).willReturn(3L);
 
         // when & then
-        assertThatThrownBy(() -> teamService.teamRegister(new TeamRequest("알파", null)))
+        assertThatThrownBy(() -> teamService.teamRegister(new TeamAssignRequest(2)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(ErrorCode.DUPLICATE_TEAM_NAME);
+                .isEqualTo(ErrorCode.TEAMS_ALREADY_EXIST);
 
-        verify(teamRepository, never()).save(any());
+        verify(teamRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("미배정 참가자가 팀 수보다 적으면 예외가 발생하고 팀을 만들지 않는다")
+    void teamRegisterWithNotEnoughUsers() {
+        // given
+        given(teamRepository.count()).willReturn(0L);
+        given(userRepository.findByTeamIsNullOrderById()).willReturn(List.of(user(Tier.GOLD)));
+
+        // when & then
+        assertThatThrownBy(() -> teamService.teamRegister(new TeamAssignRequest(2)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.NOT_ENOUGH_USERS);
+
+        verify(teamRepository, never()).saveAll(any());
     }
 
     @Test
     @DisplayName("검색어가 없으면 전체 팀을 조회한다")
     void getAllTeamsWithoutName() {
         // given
-        given(teamRepository.findAll()).willReturn(List.of(team("알파"), team("베타")));
+        given(teamRepository.findAll()).willReturn(List.of(team("1팀"), team("2팀")));
 
         // when
         List<TeamResponse> responses = teamService.getAllTeams(null);
 
         // then
-        assertThat(responses).extracting(TeamResponse::name).containsExactly("알파", "베타");
+        assertThat(responses).extracting(TeamResponse::name).containsExactly("1팀", "2팀");
     }
 
     @Test
@@ -109,6 +120,20 @@ class TeamServiceImplTest {
     }
 
     @Test
+    @DisplayName("팀원이 없는 팀의 평균 점수는 0이다")
+    void getOneTeamWithoutUsers() {
+        // given
+        given(teamRepository.findById(1L)).willReturn(Optional.of(team("1팀")));
+
+        // when
+        TeamResponse response = teamService.getOneTeam(1L);
+
+        // then
+        assertThat(response.averageScore()).isZero();
+        assertThat(response.users()).isEmpty();
+    }
+
+    @Test
     @DisplayName("없는 팀을 조회하면 예외가 발생한다")
     void getOneTeamNotFound() {
         // given
@@ -122,71 +147,55 @@ class TeamServiceImplTest {
     }
 
     @Test
-    @DisplayName("팀을 수정하면 이름과 선수 목록이 변경된다")
+    @DisplayName("팀 이름을 수정한다")
     void updateTeam() {
         // given
-        Team team = team("알파");
+        Team team = team("1팀");
         given(teamRepository.findById(1L)).willReturn(Optional.of(team));
-        given(teamRepository.existsByNameAndIdNot("베타", 1L)).willReturn(false);
-        TeamRequest request = new TeamRequest("베타", List.of(new UserRequest("2102", "임꺽정", Tier.SILVER)));
+        given(teamRepository.existsByNameAndIdNot("알파", 1L)).willReturn(false);
 
         // when
-        TeamResponse response = teamService.updateTeam(1L, request);
+        TeamResponse response = teamService.updateTeam(1L, new TeamRequest("알파"));
 
         // then
-        assertThat(response.name()).isEqualTo("베타");
-        assertThat(team.getName()).isEqualTo("베타");
-        assertThat(team.getUsers()).hasSize(1);
-        assertThat(team.getUsers().get(0).getTeam()).isSameAs(team);
+        assertThat(response.name()).isEqualTo("알파");
+        assertThat(team.getName()).isEqualTo("알파");
     }
 
     @Test
     @DisplayName("다른 팀이 쓰는 이름으로 수정하면 예외가 발생하고 변경되지 않는다")
     void updateTeamWithDuplicateName() {
         // given
-        Team team = team("알파");
+        Team team = team("1팀");
         given(teamRepository.findById(1L)).willReturn(Optional.of(team));
-        given(teamRepository.existsByNameAndIdNot("베타", 1L)).willReturn(true);
+        given(teamRepository.existsByNameAndIdNot("2팀", 1L)).willReturn(true);
 
         // when & then
-        assertThatThrownBy(() -> teamService.updateTeam(1L, new TeamRequest("베타", null)))
+        assertThatThrownBy(() -> teamService.updateTeam(1L, new TeamRequest("2팀")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.DUPLICATE_TEAM_NAME);
 
-        assertThat(team.getName()).isEqualTo("알파");
+        assertThat(team.getName()).isEqualTo("1팀");
     }
 
     @Test
-    @DisplayName("팀을 삭제한다")
-    void deleteTeam() {
-        // given
-        Team team = team("알파");
-        given(teamRepository.findById(1L)).willReturn(Optional.of(team));
-
+    @DisplayName("팀 전체 삭제는 유저의 소속을 먼저 해제한 뒤 팀을 삭제한다")
+    void deleteAllTeams() {
         // when
-        teamService.deleteTeam(1L);
+        teamService.deleteAllTeams();
 
         // then
-        verify(teamRepository).delete(team);
-    }
-
-    @Test
-    @DisplayName("없는 팀을 삭제하면 예외가 발생한다")
-    void deleteTeamNotFound() {
-        // given
-        given(teamRepository.findById(99L)).willReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> teamService.deleteTeam(99L))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.TEAM_NOT_FOUND);
-
-        verify(teamRepository, never()).delete(any());
+        InOrder order = inOrder(userRepository, teamRepository);
+        order.verify(userRepository).clearAllTeams();
+        order.verify(teamRepository).deleteAllInBatch();
     }
 
     private Team team(String name) {
         return new Team(name, new ArrayList<>());
+    }
+
+    private User user(Tier tier) {
+        return User.builder().tier(tier).build();
     }
 }

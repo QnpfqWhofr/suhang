@@ -1,5 +1,6 @@
 package hello.dgswesport.controller;
 
+import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.global.response.ApiResponse;
@@ -17,9 +18,10 @@ public class TeamController {
     @Autowired
     TeamService teamService;
 
+    // 팀에 배정되지 않은 참가자를 teamCount개의 팀으로 자동 배정한다.
     @PostMapping("/team")
-    public ResponseEntity<ApiResponse<TeamResponse>> teamRegister(@Valid @RequestBody TeamRequest request){
-        TeamResponse response = teamService.teamRegister(request);
+    public ResponseEntity<ApiResponse<List<TeamResponse>>> teamRegister(@Valid @RequestBody TeamAssignRequest request){
+        List<TeamResponse> response = teamService.teamRegister(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created(response));
     }
 
@@ -39,10 +41,10 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(teamService.updateTeam(id, request)));
     }
 
-    // 삭제 성공 시 본문 없이 204를 응답한다.
-    @DeleteMapping("/team/{id}")
-    public ResponseEntity<Void> deleteTeam(@PathVariable Long id){
-        teamService.deleteTeam(id);
+    // 팀 전체를 삭제한다. 성공 시 본문 없이 204를 응답한다.
+    @DeleteMapping("/team")
+    public ResponseEntity<Void> deleteAllTeams(){
+        teamService.deleteAllTeams();
         return ResponseEntity.noContent().build();
     }
 }

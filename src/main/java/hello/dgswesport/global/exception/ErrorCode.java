@@ -19,6 +19,8 @@ public enum ErrorCode {
 
     TEAM_NOT_FOUND(HttpStatus.NOT_FOUND, "팀을 찾을 수 없습니다."),
     DUPLICATE_TEAM_NAME(HttpStatus.CONFLICT, "이미 사용 중인 팀 이름입니다."),
+    TEAMS_ALREADY_EXIST(HttpStatus.CONFLICT, "이미 팀이 생성되어 있습니다. 팀 전체 삭제 후 다시 생성하세요."),
+    NOT_ENOUGH_USERS(HttpStatus.BAD_REQUEST, "팀에 배정되지 않은 참가자가 팀 수보다 적습니다."),
 
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "유저를 찾을 수 없습니다."),
     DUPLICATE_STUDENT_NUM(HttpStatus.CONFLICT, "이미 등록된 학번입니다."),
