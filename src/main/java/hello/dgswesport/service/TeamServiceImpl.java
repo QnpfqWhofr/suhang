@@ -85,7 +85,7 @@ public class TeamServiceImpl implements TeamService {
         }
         return requests.stream()
                 .map(request -> User.builder()
-                        .student_num(request.studentNum())
+                        .studentNum(request.studentNum())
                         .name(request.name())
                         .tier(request.tier())
                         .team(team)

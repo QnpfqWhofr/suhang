@@ -1,5 +1,6 @@
 package hello.dgswesport.service;
 
+import hello.dgswesport.domain.entity.Tier;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.dto.UserRequest;
@@ -34,8 +35,8 @@ class TeamServiceImplJpaTest {
     void teamRegisterWithUsers() {
         // given
         TeamRequest request = new TeamRequest("알파", List.of(
-                new UserRequest("2101", "홍길동", "골드"),
-                new UserRequest("2102", "임꺽정", "실버")));
+                new UserRequest("2101", "홍길동", Tier.GOLD),
+                new UserRequest("2102", "임꺽정", Tier.SILVER)));
 
         // when
         TeamResponse created = teamService.teamRegister(request);
@@ -52,12 +53,12 @@ class TeamServiceImplJpaTest {
     void updateTeamReplacesUsers() {
         // given
         TeamResponse created = teamService.teamRegister(
-                new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", "골드"))));
+                new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", Tier.GOLD))));
         flushAndClear();
 
         // when
         TeamResponse updated = teamService.updateTeam(created.id(),
-                new TeamRequest("베타", List.of(new UserRequest("2102", "임꺽정", "실버"))));
+                new TeamRequest("베타", List.of(new UserRequest("2102", "임꺽정", Tier.SILVER))));
         flushAndClear();
 
         // then
@@ -72,7 +73,7 @@ class TeamServiceImplJpaTest {
     void deleteTeamRemovesUsers() {
         // given
         TeamResponse created = teamService.teamRegister(
-                new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", "골드"))));
+                new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", Tier.GOLD))));
         flushAndClear();
 
         // when

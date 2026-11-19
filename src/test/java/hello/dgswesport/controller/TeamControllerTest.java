@@ -1,5 +1,6 @@
 package hello.dgswesport.controller;
 
+import hello.dgswesport.domain.entity.Tier;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.dto.UserResponse;
@@ -43,13 +44,13 @@ class TeamControllerTest {
     void teamRegister() throws Exception {
         // given
         given(teamService.teamRegister(any(TeamRequest.class)))
-                .willReturn(new TeamResponse(1L, "알파", List.of(new UserResponse(1L, "2101", "홍길동", "골드"))));
+                .willReturn(new TeamResponse(1L, "알파", List.of(new UserResponse(1L, "2101", "홍길동", null, Tier.GOLD, 1L))));
 
         // when & then
         mockMvc.perform(post("/team")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "알파", "users": [{"studentNum": "2101", "name": "홍길동", "tier": "골드"}]}
+                                {"name": "알파", "users": [{"studentNum": "2101", "name": "홍길동", "tier": "GOLD"}]}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value(201))
@@ -157,13 +158,13 @@ class TeamControllerTest {
     void updateTeam() throws Exception {
         // given
         given(teamService.updateTeam(eq(1L), any(TeamRequest.class)))
-                .willReturn(new TeamResponse(1L, "베타", List.of(new UserResponse(2L, "2102", "임꺽정", "실버"))));
+                .willReturn(new TeamResponse(1L, "베타", List.of(new UserResponse(2L, "2102", "임꺽정", null, Tier.SILVER, 1L))));
 
         // when & then
         mockMvc.perform(put("/team/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "베타", "users": [{"studentNum": "2102", "name": "임꺽정", "tier": "실버"}]}
+                                {"name": "베타", "users": [{"studentNum": "2102", "name": "임꺽정", "tier": "SILVER"}]}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("베타"))

@@ -17,11 +17,24 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String student_num;
-    private String name;
-    private String tier;
+    // 로그인에 쓰는 값이라 중복을 허용하지 않는다.
+    @Column(name = "student_num", nullable = false, unique = true)
+    private String studentNum;
 
+    private String name;
+
+    private String gameNickname;
+
+    @Enumerated(EnumType.STRING)
+    private Tier tier;
+
+    // 암호화된 값만 저장한다. 로그에 출력되지 않도록 toString에서 제외한다.
+    @ToString.Exclude
+    private String password;
+
+    // 팀 배정 전에는 null이다.
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "team_id", nullable = false)
+    @JoinColumn(name = "team_id")
     private Team team;
 }
