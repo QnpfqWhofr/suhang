@@ -22,6 +22,11 @@ public class Team {
 
     private String name;
 
+    public Team(String name, List<User> users) {
+        this.name = name;
+        this.users = users;
+    }
+
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 10)
     @Builder.Default
