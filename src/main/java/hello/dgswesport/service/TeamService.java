@@ -1,47 +1,20 @@
 package hello.dgswesport.service;
 
-import hello.dgswesport.domain.entity.Team;
-import hello.dgswesport.domain.repository.TeamRepository;
 import hello.dgswesport.dto.TeamRequest;
-import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import hello.dgswesport.dto.TeamResponse;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
-@Service
-public class TeamService {
+public interface TeamService {
 
-    @Autowired
-    private TeamRepository teamRepository;
+    TeamResponse teamRegister(TeamRequest request);
 
-    public Map<String, Object> teamRegister(TeamRequest request){
-        Team team = new Team(request.getName(), request.getUsers());
-        Map<String,Object> map = new HashMap<>();
-        teamRepository.save(team);
+    // name이 비어 있으면 전체 조회, 있으면 이름에 해당 문자열이 포함된 팀만 조회한다.
+    List<TeamResponse> getAllTeams(String name);
 
-        map.put("code",200);
-        map.put("data",team);
-        map.put("message","등록완료");
-        return map;
-    }
+    TeamResponse getOneTeam(Long id);
 
-    public Map<String, Object> getAllTeams() {
-        Map<String,Object> map = new HashMap<>();
-        List<Team> teams = teamRepository.findAll();
-        map.put("code",200);
-        map.put("data",teams);
-        return map;
-    }
+    TeamResponse updateTeam(Long id, TeamRequest request);
 
-    public Map<String, Object> getOneTeam(Long id) {
-        Map<String,Object> map = new HashMap<>();
-        Optional<Team> teams = teamRepository.findById(id);
-        map.put("code",200);
-        map.put("data",teams);
-        return map;
-    }
+    void deleteTeam(Long id);
 }
