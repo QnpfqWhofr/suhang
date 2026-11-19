@@ -3,6 +3,7 @@ package hello.dgswesport.service;
 import hello.dgswesport.domain.entity.Team;
 import hello.dgswesport.domain.entity.Tier;
 import hello.dgswesport.domain.entity.User;
+import hello.dgswesport.domain.repository.MatchRepository;
 import hello.dgswesport.domain.repository.TeamRepository;
 import hello.dgswesport.domain.repository.UserRepository;
 import hello.dgswesport.dto.TeamRequest;
@@ -38,6 +39,9 @@ class TeamServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private MatchRepository matchRepository;
 
     @InjectMocks
     private TeamServiceImpl teamService;
@@ -198,19 +202,20 @@ class TeamServiceImplTest {
     }
 
     @Test
-    @DisplayName("팀 전체 삭제는 유저의 소속을 먼저 해제한 뒤 팀을 삭제한다")
+    @DisplayName("팀 전체 삭제는 대진을 지우고 유저의 소속을 해제한 뒤 팀을 삭제한다")
     void deleteAllTeams() {
         // when
         teamService.deleteAllTeams();
 
         // then
-        InOrder order = inOrder(userRepository, teamRepository);
+        InOrder order = inOrder(matchRepository, userRepository, teamRepository);
+        order.verify(matchRepository).deleteAllInBatch();
         order.verify(userRepository).clearAllTeams();
         order.verify(teamRepository).deleteAllInBatch();
     }
 
     @Test
-    @DisplayName("팀 하나를 삭제하면 소속 유저를 미배정으로 되돌린 뒤 팀을 삭제한다")
+    @DisplayName("팀 하나를 삭제하면 대진을 지우고 소속 유저를 미배정으로 되돌린 뒤 팀을 삭제한다")
     void deleteTeam() {
         // given
         Team team = team("1팀");
@@ -226,7 +231,9 @@ class TeamServiceImplTest {
 
         // then
         assertThat(members).allSatisfy(user -> assertThat(user.getTeam()).isNull());
-        verify(teamRepository).delete(team);
+        InOrder order = inOrder(matchRepository, teamRepository);
+        order.verify(matchRepository).deleteAllInBatch();
+        order.verify(teamRepository).delete(team);
     }
 
     @Test
@@ -242,6 +249,7 @@ class TeamServiceImplTest {
                 .isEqualTo(ErrorCode.TEAM_NOT_FOUND);
 
         verify(teamRepository, never()).delete(any(Team.class));
+        verify(matchRepository, never()).deleteAllInBatch();
     }
 
     private Team team(String name) {

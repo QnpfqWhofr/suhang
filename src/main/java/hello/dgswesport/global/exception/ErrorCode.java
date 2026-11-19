@@ -24,7 +24,10 @@ public enum ErrorCode {
 
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "유저를 찾을 수 없습니다."),
     DUPLICATE_STUDENT_NUM(HttpStatus.CONFLICT, "이미 등록된 학번입니다."),
-    LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "학번 또는 비밀번호가 올바르지 않습니다.");
+    LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "학번 또는 비밀번호가 올바르지 않습니다."),
+
+    NOT_ENOUGH_TEAMS(HttpStatus.BAD_REQUEST, "대진을 편성하려면 팀이 2개 이상 필요합니다."),
+    MATCHES_ALREADY_EXIST(HttpStatus.CONFLICT, "이미 대진이 편성되어 있습니다. 팀을 삭제하면 대진도 함께 삭제됩니다.");
 
     private final HttpStatus status;
     private final String message;

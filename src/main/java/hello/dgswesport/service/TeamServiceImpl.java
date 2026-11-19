@@ -2,6 +2,7 @@ package hello.dgswesport.service;
 
 import hello.dgswesport.domain.entity.Team;
 import hello.dgswesport.domain.entity.User;
+import hello.dgswesport.domain.repository.MatchRepository;
 import hello.dgswesport.domain.repository.TeamRepository;
 import hello.dgswesport.domain.repository.UserRepository;
 import hello.dgswesport.dto.TeamRequest;
@@ -23,6 +24,7 @@ public class TeamServiceImpl implements TeamService {
 
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
+    private final MatchRepository matchRepository;
 
     // 한 팀의 인원. 5대5 게임 기준이다.
     private static final int TEAM_SIZE = 5;
@@ -93,6 +95,8 @@ public class TeamServiceImpl implements TeamService {
     @Transactional
     public void deleteTeam(Long id) {
         Team team = findTeam(id);
+        // 팀이 바뀌면 편성된 대진이 무효가 되고, 경기가 팀을 참조하므로 대진을 먼저 삭제한다.
+        matchRepository.deleteAllInBatch();
         // team_id 외래키 때문에 소속 유저를 먼저 미배정으로 되돌린 뒤 팀을 삭제한다.
         team.getUsers().forEach(user -> user.setTeam(null));
         teamRepository.delete(team);
@@ -101,6 +105,8 @@ public class TeamServiceImpl implements TeamService {
     @Override
     @Transactional
     public void deleteAllTeams() {
+        // 경기가 팀을 참조하므로 편성된 대진을 먼저 삭제한다.
+        matchRepository.deleteAllInBatch();
         // team_id 외래키 때문에 유저의 소속을 먼저 해제한 뒤 팀을 삭제한다.
         userRepository.clearAllTeams();
         teamRepository.deleteAllInBatch();
