@@ -6,7 +6,7 @@ import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.global.response.ApiResponse;
 import hello.dgswesport.service.TeamService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 public class TeamController {
-    @Autowired
-    TeamService teamService;
+
+    private final TeamService teamService;
 
     // 팀에 배정되지 않은 참가자를 teamCount개의 팀으로 자동 배정한다.
     @PostMapping("/team")

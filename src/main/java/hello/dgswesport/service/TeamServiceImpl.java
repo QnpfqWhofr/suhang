@@ -9,7 +9,7 @@ import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.global.exception.BusinessException;
 import hello.dgswesport.global.exception.ErrorCode;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -18,14 +18,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TeamServiceImpl implements TeamService {
 
-    @Autowired
-    private TeamRepository teamRepository;
-
-    @Autowired
-    private UserRepository userRepository;
+    private final TeamRepository teamRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional

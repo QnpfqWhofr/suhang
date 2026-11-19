@@ -7,7 +7,7 @@ import hello.dgswesport.dto.UserUpdateRequest;
 import hello.dgswesport.global.response.ApiResponse;
 import hello.dgswesport.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 public class UserController {
-    @Autowired
-    UserService userService;
+
+    private final UserService userService;
 
     @PostMapping("/user")
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody UserCreateRequest request){
