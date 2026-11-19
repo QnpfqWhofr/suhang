@@ -7,8 +7,6 @@ import java.util.List;
 
 public interface TeamRepository extends JpaRepository<Team,Long> {
 
-    boolean existsByName(String name);
-
     // 수정 시 자기 자신을 제외하고 같은 이름이 있는지 확인한다.
     boolean existsByNameAndIdNot(String name, Long id);
 

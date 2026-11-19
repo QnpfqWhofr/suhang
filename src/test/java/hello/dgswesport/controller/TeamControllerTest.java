@@ -1,6 +1,7 @@
 package hello.dgswesport.controller;
 
 import hello.dgswesport.domain.entity.Tier;
+import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.dto.UserResponse;
@@ -20,7 +21,6 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -33,6 +33,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(TeamController.class)
 class TeamControllerTest {
 
+    private static final TeamResponse TEAM_1 = new TeamResponse(1L, "1팀", 5.5, List.of(
+            new UserResponse(1L, "3101", "김하늘", "SkyKim", Tier.DIAMOND, 1L),
+            new UserResponse(2L, "2103", "박서준", "SeoJunP", Tier.GOLD, 1L)));
+    private static final TeamResponse TEAM_2 = new TeamResponse(2L, "2팀", 5.0, List.of(
+            new UserResponse(3L, "3102", "이도윤", "DoYoon2", Tier.PLATINUM, 2L)));
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -40,104 +46,101 @@ class TeamControllerTest {
     private TeamService teamService;
 
     @Test
-    @DisplayName("팀과 선수를 등록하면 201과 생성된 팀을 응답한다")
+    @DisplayName("팀 자동 배정을 요청하면 201과 생성된 팀 목록을 응답한다")
     void teamRegister() throws Exception {
         // given
-        given(teamService.teamRegister(any(TeamRequest.class)))
-                .willReturn(new TeamResponse(1L, "알파", List.of(new UserResponse(1L, "2101", "홍길동", null, Tier.GOLD, 1L))));
+        given(teamService.teamRegister(any(TeamAssignRequest.class))).willReturn(List.of(TEAM_1, TEAM_2));
 
         // when & then
         mockMvc.perform(post("/team")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "알파", "users": [{"studentNum": "2101", "name": "홍길동", "tier": "GOLD"}]}
+                                {"teamCount": 2}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value(201))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.name").value("알파"))
-                .andExpect(jsonPath("$.data.users[0].studentNum").value("2101"))
-                .andExpect(jsonPath("$.data.users[0].name").value("홍길동"));
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].name").value("1팀"))
+                .andExpect(jsonPath("$.data[0].averageScore").value(5.5))
+                .andExpect(jsonPath("$.data[0].users[0].name").value("김하늘"));
     }
 
     @Test
-    @DisplayName("팀 이름이 비어 있으면 400을 응답하고 서비스를 호출하지 않는다")
-    void teamRegisterWithBlankName() throws Exception {
+    @DisplayName("팀 수가 2보다 작으면 400을 응답하고 서비스를 호출하지 않는다")
+    void teamRegisterWithTooFewTeams() throws Exception {
         mockMvc.perform(post("/team")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": " "}
+                                {"teamCount": 1}
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
-                .andExpect(jsonPath("$.errors[0].field").value("name"))
-                .andExpect(jsonPath("$.errors[0].message").value("팀 이름은 필수입니다."));
+                .andExpect(jsonPath("$.errors[0].field").value("teamCount"))
+                .andExpect(jsonPath("$.errors[0].message").value("팀 수는 2 이상이어야 합니다."));
 
         verify(teamService, never()).teamRegister(any());
     }
 
     @Test
-    @DisplayName("선수 이름이 비어 있으면 400과 해당 선수의 필드 위치를 응답한다")
-    void teamRegisterWithBlankUserName() throws Exception {
-        mockMvc.perform(post("/team")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "알파", "users": [{"studentNum": "2101", "name": ""}]}
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
-                .andExpect(jsonPath("$.errors[0].field").value("users[0].name"))
-                .andExpect(jsonPath("$.errors[0].message").value("선수 이름은 필수입니다."));
-
-        verify(teamService, never()).teamRegister(any());
-    }
-
-    @Test
-    @DisplayName("이미 있는 팀 이름으로 등록하면 409를 응답한다")
-    void teamRegisterWithDuplicateName() throws Exception {
+    @DisplayName("이미 팀이 있으면 409를 응답한다")
+    void teamRegisterWhenTeamsExist() throws Exception {
         // given
-        given(teamService.teamRegister(any(TeamRequest.class)))
-                .willThrow(new BusinessException(ErrorCode.DUPLICATE_TEAM_NAME));
+        given(teamService.teamRegister(any(TeamAssignRequest.class)))
+                .willThrow(new BusinessException(ErrorCode.TEAMS_ALREADY_EXIST));
 
         // when & then
         mockMvc.perform(post("/team")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "알파"}
+                                {"teamCount": 2}
                                 """))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DUPLICATE_TEAM_NAME"))
-                .andExpect(jsonPath("$.message").value("이미 사용 중인 팀 이름입니다."));
+                .andExpect(jsonPath("$.code").value("TEAMS_ALREADY_EXIST"));
     }
 
     @Test
-    @DisplayName("팀 목록을 조회하면 200과 팀 목록을 응답한다")
-    void getAllTeams() throws Exception {
+    @DisplayName("참가자가 팀 수보다 적으면 400을 응답한다")
+    void teamRegisterWithNotEnoughUsers() throws Exception {
         // given
-        given(teamService.getAllTeams("알")).willReturn(List.of(
-                new TeamResponse(1L, "알파", List.of()),
-                new TeamResponse(2L, "알고리즘", List.of())));
+        given(teamService.teamRegister(any(TeamAssignRequest.class)))
+                .willThrow(new BusinessException(ErrorCode.NOT_ENOUGH_USERS));
 
         // when & then
-        mockMvc.perform(get("/team").param("name", "알"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].name").value("알파"))
-                .andExpect(jsonPath("$.data[1].name").value("알고리즘"));
+        mockMvc.perform(post("/team")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"teamCount": 8}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("NOT_ENOUGH_USERS"));
     }
 
     @Test
-    @DisplayName("팀을 단건 조회하면 200과 팀을 응답한다")
+    @DisplayName("팀 목록을 조회하면 200과 팀별 평균 실력 점수를 응답한다")
+    void getAllTeams() throws Exception {
+        // given
+        given(teamService.getAllTeams(null)).willReturn(List.of(TEAM_1, TEAM_2));
+
+        // when & then
+        mockMvc.perform(get("/team"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].averageScore").value(5.5))
+                .andExpect(jsonPath("$.data[1].averageScore").value(5.0));
+    }
+
+    @Test
+    @DisplayName("팀을 단건 조회하면 200과 소속 팀원 목록을 응답한다")
     void getOneTeam() throws Exception {
         // given
-        given(teamService.getOneTeam(1L)).willReturn(new TeamResponse(1L, "알파", List.of()));
+        given(teamService.getOneTeam(1L)).willReturn(TEAM_1);
 
         // when & then
         mockMvc.perform(get("/team/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.name").value("알파"));
+                .andExpect(jsonPath("$.data.users.length()").value(2))
+                .andExpect(jsonPath("$.data.users[1].tier").value("GOLD"));
     }
 
     @Test
@@ -154,42 +157,46 @@ class TeamControllerTest {
     }
 
     @Test
-    @DisplayName("팀을 수정하면 200과 수정된 팀을 응답한다")
+    @DisplayName("팀 이름을 수정하면 200과 수정된 팀을 응답한다")
     void updateTeam() throws Exception {
         // given
         given(teamService.updateTeam(eq(1L), any(TeamRequest.class)))
-                .willReturn(new TeamResponse(1L, "베타", List.of(new UserResponse(2L, "2102", "임꺽정", null, Tier.SILVER, 1L))));
+                .willReturn(new TeamResponse(1L, "알파", 5.5, List.of()));
 
         // when & then
         mockMvc.perform(put("/team/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name": "베타", "users": [{"studentNum": "2102", "name": "임꺽정", "tier": "SILVER"}]}
+                                {"name": "알파"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.name").value("베타"))
-                .andExpect(jsonPath("$.data.users[0].name").value("임꺽정"));
+                .andExpect(jsonPath("$.data.name").value("알파"));
     }
 
     @Test
-    @DisplayName("팀을 삭제하면 본문 없이 204를 응답한다")
-    void deleteTeam() throws Exception {
-        mockMvc.perform(delete("/team/1"))
+    @DisplayName("다른 팀이 쓰는 이름으로 수정하면 409를 응답한다")
+    void updateTeamWithDuplicateName() throws Exception {
+        // given
+        given(teamService.updateTeam(eq(1L), any(TeamRequest.class)))
+                .willThrow(new BusinessException(ErrorCode.DUPLICATE_TEAM_NAME));
+
+        // when & then
+        mockMvc.perform(put("/team/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "2팀"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DUPLICATE_TEAM_NAME"));
+    }
+
+    @Test
+    @DisplayName("팀 전체를 삭제하면 본문 없이 204를 응답한다")
+    void deleteAllTeams() throws Exception {
+        mockMvc.perform(delete("/team"))
                 .andExpect(status().isNoContent())
                 .andExpect(jsonPath("$").doesNotExist());
 
-        verify(teamService).deleteTeam(1L);
-    }
-
-    @Test
-    @DisplayName("없는 팀을 삭제하면 404를 응답한다")
-    void deleteTeamNotFound() throws Exception {
-        // given
-        willThrow(new BusinessException(ErrorCode.TEAM_NOT_FOUND)).given(teamService).deleteTeam(99L);
-
-        // when & then
-        mockMvc.perform(delete("/team/99"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TEAM_NOT_FOUND"));
+        verify(teamService).deleteAllTeams();
     }
 }

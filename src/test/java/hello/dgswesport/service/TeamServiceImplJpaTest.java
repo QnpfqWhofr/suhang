@@ -1,11 +1,11 @@
 package hello.dgswesport.service;
 
 import hello.dgswesport.domain.entity.Tier;
-import hello.dgswesport.dto.TeamRequest;
+import hello.dgswesport.domain.entity.User;
+import hello.dgswesport.domain.repository.UserRepository;
+import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamResponse;
-import hello.dgswesport.dto.UserRequest;
 import hello.dgswesport.dto.UserResponse;
-import hello.dgswesport.global.exception.BusinessException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
@@ -17,9 +17,8 @@ import org.springframework.context.annotation.Import;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-// 실제 DB(H2)와 연결해 Mock으로는 확인할 수 없는 팀-선수 연관관계 저장을 검증한다.
+// 실제 DB(H2)와 연결해 Mock으로는 확인할 수 없는 팀-유저 연관관계 저장과 벌크 쿼리를 검증한다.
 @DataJpaTest
 @Import(TeamServiceImpl.class)
 class TeamServiceImplJpaTest {
@@ -27,72 +26,103 @@ class TeamServiceImplJpaTest {
     @Autowired
     private TeamService teamService;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PersistenceContext
     private EntityManager entityManager;
 
     @Test
-    @DisplayName("팀과 선수를 함께 등록하면 선수가 팀에 소속되어 저장된다")
-    void teamRegisterWithUsers() {
+    @DisplayName("팀을 자동 배정하면 모든 참가자의 소속 팀이 DB에 저장된다")
+    void teamRegisterAssignsAllUsers() {
         // given
-        TeamRequest request = new TeamRequest("알파", List.of(
-                new UserRequest("2101", "홍길동", Tier.GOLD),
-                new UserRequest("2102", "임꺽정", Tier.SILVER)));
+        saveUsers(Tier.CHALLENGER, Tier.DIAMOND, Tier.GOLD, Tier.IRON);
+        flushAndClear();
 
         // when
-        TeamResponse created = teamService.teamRegister(request);
+        List<TeamResponse> created = teamService.teamRegister(new TeamAssignRequest(2));
         flushAndClear();
 
         // then
-        TeamResponse found = teamService.getOneTeam(created.id());
-        assertThat(found.users()).extracting(UserResponse::name).containsExactlyInAnyOrder("홍길동", "임꺽정");
-        assertThat(found.users()).allSatisfy(user -> assertThat(user.id()).isNotNull());
+        assertThat(userRepository.findByTeamIsNullOrderById()).isEmpty();
+        List<TeamResponse> found = teamService.getAllTeams(null);
+        assertThat(found).hasSize(2);
+        assertThat(found).allSatisfy(team -> assertThat(team.users()).hasSize(2));
+        assertThat(found).extracting(TeamResponse::averageScore).containsExactly(5.5, 5.5);
+        assertThat(created).extracting(TeamResponse::id).doesNotContainNull();
     }
 
     @Test
-    @DisplayName("팀을 수정하면 기존 선수는 삭제되고 새 선수가 ID와 함께 응답된다")
-    void updateTeamReplacesUsers() {
+    @DisplayName("이미 팀에 배정된 참가자는 다시 배정하지 않는다")
+    void teamRegisterSkipsAssignedUsers() {
         // given
-        TeamResponse created = teamService.teamRegister(
-                new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", Tier.GOLD))));
+        saveUsers(Tier.GOLD, Tier.GOLD);
+        flushAndClear();
+        teamService.teamRegister(new TeamAssignRequest(2));
         flushAndClear();
 
         // when
-        TeamResponse updated = teamService.updateTeam(created.id(),
-                new TeamRequest("베타", List.of(new UserRequest("2102", "임꺽정", Tier.SILVER))));
+        saveUsers(Tier.SILVER);
         flushAndClear();
 
         // then
-        assertThat(updated.name()).isEqualTo("베타");
-        assertThat(updated.users()).extracting(UserResponse::name).containsExactly("임꺽정");
-        assertThat(updated.users().get(0).id()).isNotNull();
-        assertThat(countUsers()).isEqualTo(1);
+        assertThat(userRepository.findByTeamIsNullOrderById())
+                .extracting(User::getTier)
+                .containsExactly(Tier.SILVER);
     }
 
     @Test
-    @DisplayName("팀을 삭제하면 소속 선수도 함께 삭제된다")
-    void deleteTeamRemovesUsers() {
+    @DisplayName("팀 전체를 삭제하면 팀은 사라지고 유저는 미배정 상태로 남는다")
+    void deleteAllTeamsKeepsUsers() {
         // given
-        TeamResponse created = teamService.teamRegister(
-                new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", Tier.GOLD))));
+        saveUsers(Tier.CHALLENGER, Tier.DIAMOND, Tier.GOLD, Tier.IRON);
+        flushAndClear();
+        teamService.teamRegister(new TeamAssignRequest(2));
         flushAndClear();
 
         // when
-        teamService.deleteTeam(created.id());
+        teamService.deleteAllTeams();
         flushAndClear();
 
         // then
-        assertThat(countUsers()).isZero();
-        assertThatThrownBy(() -> teamService.getOneTeam(created.id()))
-                .isInstanceOf(BusinessException.class);
+        assertThat(teamService.getAllTeams(null)).isEmpty();
+        assertThat(userRepository.count()).isEqualTo(4);
+        assertThat(userRepository.findByTeamIsNullOrderById()).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("팀 단건 조회는 소속 팀원과 팀 ID를 함께 반환한다")
+    void getOneTeamReturnsMembers() {
+        // given
+        saveUsers(Tier.DIAMOND, Tier.GOLD);
+        flushAndClear();
+        Long teamId = teamService.teamRegister(new TeamAssignRequest(2)).get(0).id();
+        flushAndClear();
+
+        // when
+        TeamResponse found = teamService.getOneTeam(teamId);
+
+        // then
+        assertThat(found.users()).hasSize(1);
+        assertThat(found.users()).extracting(UserResponse::teamId).containsExactly(teamId);
+    }
+
+    private void saveUsers(Tier... tiers) {
+        long base = userRepository.count();
+        for (int i = 0; i < tiers.length; i++) {
+            userRepository.save(User.builder()
+                    .studentNum("S" + (base + i))
+                    .name("참가자" + (base + i))
+                    .gameNickname("nick" + (base + i))
+                    .tier(tiers[i])
+                    .password("ENCODED")
+                    .build());
+        }
     }
 
     // 영속성 컨텍스트를 비워 이후 조회가 실제 DB 값을 읽게 한다.
     private void flushAndClear() {
         entityManager.flush();
         entityManager.clear();
-    }
-
-    private long countUsers() {
-        return entityManager.createQuery("select count(u) from User u", Long.class).getSingleResult();
     }
 }
