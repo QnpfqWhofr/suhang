@@ -1,7 +1,8 @@
 -- 애플리케이션 시작 시 삽입되는 테스트용 더미 데이터
 
--- 대회 참가자 12명. 모두 팀 미배정 상태이며, POST /team 으로 5명씩 팀을 자동 배정할 수 있다.
--- 12명이면 5명 팀 2개가 만들어지고, 나중에 등록된 2명은 미배정으로 남는다.
+-- 대회 참가자 17명. 모두 팀 미배정 상태이며, POST /team 으로 5명씩 팀을 자동 배정할 수 있다.
+-- 17명이면 5명 팀 3개가 만들어지고, 나중에 등록된 2명은 미배정으로 남는다.
+-- 팀이 3개이므로 POST /match 로 대진을 편성하면 1팀이 부전승으로 결승에 올라간다.
 -- 모든 더미 유저의 로그인 비밀번호는 test1234 이다. password 컬럼에는 BCrypt로 암호화한 값을 넣는다.
 INSERT INTO users (student_num, name, game_nickname, tier, password) VALUES
     ('3101', '김하늘', 'SkyKim', 'CHALLENGER', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
@@ -15,4 +16,9 @@ INSERT INTO users (student_num, name, game_nickname, tier, password) VALUES
     ('1101', '정민재', 'MinJae5', 'DIAMOND', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
     ('1102', '오세훈', 'SeHunO', 'PLATINUM', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
     ('1103', '임수아', 'SuaLim', 'BRONZE', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
-    ('1104', '조현우', 'HyunWoo', 'IRON', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK');
+    ('1104', '조현우', 'HyunWoo', 'IRON', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
+    ('3105', '문가온', 'GaonM', 'GRANDMASTER', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
+    ('2105', '배준영', 'JunYoungB', 'EMERALD', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
+    ('1105', '신유나', 'YunaS', 'SILVER', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
+    ('3106', '권도현', 'DoHyunK', 'PLATINUM', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK'),
+    ('2106', '황서윤', 'SeoYunH', 'BRONZE', '$2a$10$VdbQG927dDRSyOygeeW16eP8NSiND82HjeOT3Fr1xsVtWmmcvubyK');
