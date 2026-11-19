@@ -20,6 +20,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -185,5 +186,27 @@ class TeamControllerTest {
                 .andExpect(jsonPath("$").doesNotExist());
 
         verify(teamService).deleteAllTeams();
+    }
+
+    @Test
+    @DisplayName("팀 하나를 삭제하면 본문 없이 204를 응답한다")
+    void deleteTeam() throws Exception {
+        mockMvc.perform(delete("/team/1"))
+                .andExpect(status().isNoContent())
+                .andExpect(jsonPath("$").doesNotExist());
+
+        verify(teamService).deleteTeam(1L);
+    }
+
+    @Test
+    @DisplayName("없는 팀을 삭제하면 404를 응답한다")
+    void deleteTeamNotFound() throws Exception {
+        // given
+        willThrow(new BusinessException(ErrorCode.TEAM_NOT_FOUND)).given(teamService).deleteTeam(99L);
+
+        // when & then
+        mockMvc.perform(delete("/team/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TEAM_NOT_FOUND"));
     }
 }

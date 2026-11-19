@@ -209,6 +209,41 @@ class TeamServiceImplTest {
         order.verify(teamRepository).deleteAllInBatch();
     }
 
+    @Test
+    @DisplayName("팀 하나를 삭제하면 소속 유저를 미배정으로 되돌린 뒤 팀을 삭제한다")
+    void deleteTeam() {
+        // given
+        Team team = team("1팀");
+        List<User> members = users(2);
+        members.forEach(user -> {
+            user.setTeam(team);
+            team.getUsers().add(user);
+        });
+        given(teamRepository.findById(1L)).willReturn(Optional.of(team));
+
+        // when
+        teamService.deleteTeam(1L);
+
+        // then
+        assertThat(members).allSatisfy(user -> assertThat(user.getTeam()).isNull());
+        verify(teamRepository).delete(team);
+    }
+
+    @Test
+    @DisplayName("없는 팀을 삭제하면 예외가 발생하고 삭제하지 않는다")
+    void deleteTeamNotFound() {
+        // given
+        given(teamRepository.findById(99L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> teamService.deleteTeam(99L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.TEAM_NOT_FOUND);
+
+        verify(teamRepository, never()).delete(any(Team.class));
+    }
+
     private Team team(String name) {
         return new Team(name, new ArrayList<>());
     }

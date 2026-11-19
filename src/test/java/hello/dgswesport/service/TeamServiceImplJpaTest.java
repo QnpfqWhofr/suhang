@@ -103,6 +103,25 @@ class TeamServiceImplJpaTest {
         assertThat(found.users()).extracting(UserResponse::teamId).containsOnly(teamId);
     }
 
+    @Test
+    @DisplayName("팀 하나를 삭제하면 그 팀의 유저만 미배정으로 돌아가고 다른 팀은 유지된다")
+    void deleteTeamKeepsUsersAndOtherTeams() {
+        // given
+        saveUsers(10);
+        flushAndClear();
+        Long teamId = teamService.teamRegister().get(0).id();
+        flushAndClear();
+
+        // when
+        teamService.deleteTeam(teamId);
+        flushAndClear();
+
+        // then
+        assertThat(teamService.getAllTeams(null)).hasSize(1);
+        assertThat(userRepository.count()).isEqualTo(10);
+        assertThat(userRepository.findByTeamIsNullOrderById()).hasSize(5);
+    }
+
     // 학번 S0, S1, ... 순서로 count명을 저장한다. 티어는 전체 티어를 돌아가며 배정한다.
     private void saveUsers(int count) {
         Tier[] tiers = Tier.values();
