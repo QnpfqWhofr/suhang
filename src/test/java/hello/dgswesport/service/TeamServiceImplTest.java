@@ -1,6 +1,7 @@
 package hello.dgswesport.service;
 
 import hello.dgswesport.domain.entity.Team;
+import hello.dgswesport.domain.entity.Tier;
 import hello.dgswesport.domain.repository.TeamRepository;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
@@ -41,7 +42,7 @@ class TeamServiceImplTest {
     void teamRegister() {
         // given
         given(teamRepository.existsByName("알파")).willReturn(false);
-        TeamRequest request = new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", "골드")));
+        TeamRequest request = new TeamRequest("알파", List.of(new UserRequest("2101", "홍길동", Tier.GOLD)));
 
         // when
         TeamResponse response = teamService.teamRegister(request);
@@ -127,7 +128,7 @@ class TeamServiceImplTest {
         Team team = team("알파");
         given(teamRepository.findById(1L)).willReturn(Optional.of(team));
         given(teamRepository.existsByNameAndIdNot("베타", 1L)).willReturn(false);
-        TeamRequest request = new TeamRequest("베타", List.of(new UserRequest("2102", "임꺽정", "실버")));
+        TeamRequest request = new TeamRequest("베타", List.of(new UserRequest("2102", "임꺽정", Tier.SILVER)));
 
         // when
         TeamResponse response = teamService.updateTeam(1L, request);
