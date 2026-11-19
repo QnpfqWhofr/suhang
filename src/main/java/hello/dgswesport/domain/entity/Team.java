@@ -22,7 +22,13 @@ public class Team {
 
     private String name;
 
-    @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
+    public Team(String name, List<User> users) {
+        this.name = name;
+        this.users = users;
+    }
+
+    // 유저는 팀과 독립적으로 등록·삭제되므로 cascade를 걸지 않는다.
+    @OneToMany(mappedBy = "team")
     @BatchSize(size = 10)
     @Builder.Default
     private List<User> users = new ArrayList<>();

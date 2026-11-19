@@ -1,0 +1,6 @@
+# 테스트에서는 이 파일이 main의 application.yaml 대신 사용된다.
+# 더미 데이터(data.sql)가 테스트 결과에 섞이지 않도록 실행하지 않는다.
+spring:
+  sql:
+    init:
+      mode: never
