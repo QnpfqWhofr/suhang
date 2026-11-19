@@ -18,6 +18,9 @@ public interface TeamService {
 
     TeamResponse updateTeam(Long id, TeamRequest request);
 
-    // 팀만 삭제하고 유저는 미배정 상태로 남긴다.
+    // 팀 하나만 삭제하고 소속 유저는 미배정 상태로 남긴다.
+    void deleteTeam(Long id);
+
+    // 팀 전체를 삭제하고 유저는 미배정 상태로 남긴다.
     void deleteAllTeams();
 }

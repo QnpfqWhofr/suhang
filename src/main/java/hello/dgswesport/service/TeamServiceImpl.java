@@ -91,6 +91,15 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     @Transactional
+    public void deleteTeam(Long id) {
+        Team team = findTeam(id);
+        // team_id 외래키 때문에 소속 유저를 먼저 미배정으로 되돌린 뒤 팀을 삭제한다.
+        team.getUsers().forEach(user -> user.setTeam(null));
+        teamRepository.delete(team);
+    }
+
+    @Override
+    @Transactional
     public void deleteAllTeams() {
         // team_id 외래키 때문에 유저의 소속을 먼저 해제한 뒤 팀을 삭제한다.
         userRepository.clearAllTeams();

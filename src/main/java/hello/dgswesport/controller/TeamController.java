@@ -47,4 +47,11 @@ public class TeamController {
         teamService.deleteAllTeams();
         return ResponseEntity.noContent().build();
     }
+
+    // 팀 하나를 삭제한다. 소속 유저는 삭제하지 않고 미배정 상태로 남긴다.
+    @DeleteMapping("/team/{id}")
+    public ResponseEntity<Void> deleteTeam(@PathVariable Long id){
+        teamService.deleteTeam(id);
+        return ResponseEntity.noContent().build();
+    }
 }
