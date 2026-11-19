@@ -5,7 +5,6 @@ import hello.dgswesport.domain.entity.Tier;
 import hello.dgswesport.domain.entity.User;
 import hello.dgswesport.domain.repository.TeamRepository;
 import hello.dgswesport.domain.repository.UserRepository;
-import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.global.exception.BusinessException;
@@ -44,21 +43,40 @@ class TeamServiceImplTest {
     private TeamServiceImpl teamService;
 
     @Test
-    @DisplayName("미배정 참가자를 팀 수만큼 나눠 배정하고 팀별 평균 점수를 반환한다")
+    @DisplayName("미배정 참가자 10명을 5명씩 두 팀으로 나누고 팀별 평균 점수를 반환한다")
     void teamRegister() {
-        // given: 점수 10, 7, 4, 1
-        List<User> users = List.of(user(Tier.CHALLENGER), user(Tier.DIAMOND), user(Tier.GOLD), user(Tier.IRON));
+        // given: 점수 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 (합 55)
+        List<User> users = users(10);
         given(teamRepository.count()).willReturn(0L);
         given(userRepository.findByTeamIsNullOrderById()).willReturn(users);
 
         // when
-        List<TeamResponse> responses = teamService.teamRegister(new TeamAssignRequest(2));
+        List<TeamResponse> responses = teamService.teamRegister();
 
-        // then: (10, 1)과 (7, 4)로 나뉘어 두 팀 평균이 같다
+        // then: 합 28과 27로 나뉜다
         assertThat(responses).extracting(TeamResponse::name).containsExactly("1팀", "2팀");
-        assertThat(responses).extracting(TeamResponse::averageScore).containsExactly(5.5, 5.5);
+        assertThat(responses).allSatisfy(team -> assertThat(team.users()).hasSize(5));
+        assertThat(responses).extracting(TeamResponse::averageScore).containsExactly(5.6, 5.4);
         assertThat(users).allSatisfy(user -> assertThat(user.getTeam()).isNotNull());
         verify(teamRepository).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("5명 단위에 못 미쳐 남는 참가자는 나중에 등록된 순서대로 미배정으로 남는다")
+    void teamRegisterLeavesRemainderUnassigned() {
+        // given: 12명이면 2팀(10명)만 배정된다
+        List<User> users = users(12);
+        given(teamRepository.count()).willReturn(0L);
+        given(userRepository.findByTeamIsNullOrderById()).willReturn(users);
+
+        // when
+        List<TeamResponse> responses = teamService.teamRegister();
+
+        // then
+        assertThat(responses).hasSize(2);
+        assertThat(responses).allSatisfy(team -> assertThat(team.users()).hasSize(5));
+        assertThat(users.subList(0, 10)).allSatisfy(user -> assertThat(user.getTeam()).isNotNull());
+        assertThat(users.subList(10, 12)).allSatisfy(user -> assertThat(user.getTeam()).isNull());
     }
 
     @Test
@@ -68,7 +86,7 @@ class TeamServiceImplTest {
         given(teamRepository.count()).willReturn(3L);
 
         // when & then
-        assertThatThrownBy(() -> teamService.teamRegister(new TeamAssignRequest(2)))
+        assertThatThrownBy(() -> teamService.teamRegister())
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.TEAMS_ALREADY_EXIST);
@@ -77,14 +95,14 @@ class TeamServiceImplTest {
     }
 
     @Test
-    @DisplayName("미배정 참가자가 팀 수보다 적으면 예외가 발생하고 팀을 만들지 않는다")
+    @DisplayName("미배정 참가자가 10명보다 적으면 예외가 발생하고 팀을 만들지 않는다")
     void teamRegisterWithNotEnoughUsers() {
-        // given
+        // given: 9명이면 5명 팀을 하나밖에 만들 수 없다
         given(teamRepository.count()).willReturn(0L);
-        given(userRepository.findByTeamIsNullOrderById()).willReturn(List.of(user(Tier.GOLD)));
+        given(userRepository.findByTeamIsNullOrderById()).willReturn(users(9));
 
         // when & then
-        assertThatThrownBy(() -> teamService.teamRegister(new TeamAssignRequest(2)))
+        assertThatThrownBy(() -> teamService.teamRegister())
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.NOT_ENOUGH_USERS);
@@ -195,7 +213,13 @@ class TeamServiceImplTest {
         return new Team(name, new ArrayList<>());
     }
 
-    private User user(Tier tier) {
-        return User.builder().tier(tier).build();
+    // 점수가 10(CHALLENGER)부터 1씩 낮아지는 참가자 count명. 10명을 넘으면 다시 10점부터 반복한다.
+    private List<User> users(int count) {
+        Tier[] tiers = Tier.values();
+        List<User> users = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            users.add(User.builder().tier(tiers[tiers.length - 1 - (i % tiers.length)]).build());
+        }
+        return users;
     }
 }

@@ -3,7 +3,6 @@ package hello.dgswesport.service;
 import hello.dgswesport.domain.entity.Tier;
 import hello.dgswesport.domain.entity.User;
 import hello.dgswesport.domain.repository.UserRepository;
-import hello.dgswesport.dto.TeamAssignRequest;
 import hello.dgswesport.dto.TeamResponse;
 import hello.dgswesport.dto.UserResponse;
 import jakarta.persistence.EntityManager;
@@ -33,51 +32,48 @@ class TeamServiceImplJpaTest {
     private EntityManager entityManager;
 
     @Test
-    @DisplayName("팀을 자동 배정하면 모든 참가자의 소속 팀이 DB에 저장된다")
-    void teamRegisterAssignsAllUsers() {
+    @DisplayName("참가자 10명을 자동 배정하면 5명씩 두 팀의 소속이 DB에 저장된다")
+    void teamRegisterAssignsFivePerTeam() {
         // given
-        saveUsers(Tier.CHALLENGER, Tier.DIAMOND, Tier.GOLD, Tier.IRON);
+        saveUsers(10);
         flushAndClear();
 
         // when
-        List<TeamResponse> created = teamService.teamRegister(new TeamAssignRequest(2));
+        List<TeamResponse> created = teamService.teamRegister();
         flushAndClear();
 
         // then
+        assertThat(created).extracting(TeamResponse::id).doesNotContainNull();
         assertThat(userRepository.findByTeamIsNullOrderById()).isEmpty();
         List<TeamResponse> found = teamService.getAllTeams(null);
         assertThat(found).hasSize(2);
-        assertThat(found).allSatisfy(team -> assertThat(team.users()).hasSize(2));
-        assertThat(found).extracting(TeamResponse::averageScore).containsExactly(5.5, 5.5);
-        assertThat(created).extracting(TeamResponse::id).doesNotContainNull();
+        assertThat(found).allSatisfy(team -> assertThat(team.users()).hasSize(5));
     }
 
     @Test
-    @DisplayName("이미 팀에 배정된 참가자는 다시 배정하지 않는다")
-    void teamRegisterSkipsAssignedUsers() {
+    @DisplayName("참가자가 12명이면 나중에 등록된 2명은 미배정으로 DB에 남는다")
+    void teamRegisterLeavesRemainderUnassigned() {
         // given
-        saveUsers(Tier.GOLD, Tier.GOLD);
-        flushAndClear();
-        teamService.teamRegister(new TeamAssignRequest(2));
+        saveUsers(12);
         flushAndClear();
 
         // when
-        saveUsers(Tier.SILVER);
+        teamService.teamRegister();
         flushAndClear();
 
         // then
         assertThat(userRepository.findByTeamIsNullOrderById())
-                .extracting(User::getTier)
-                .containsExactly(Tier.SILVER);
+                .extracting(User::getStudentNum)
+                .containsExactly("S10", "S11");
     }
 
     @Test
     @DisplayName("팀 전체를 삭제하면 팀은 사라지고 유저는 미배정 상태로 남는다")
     void deleteAllTeamsKeepsUsers() {
         // given
-        saveUsers(Tier.CHALLENGER, Tier.DIAMOND, Tier.GOLD, Tier.IRON);
+        saveUsers(10);
         flushAndClear();
-        teamService.teamRegister(new TeamAssignRequest(2));
+        teamService.teamRegister();
         flushAndClear();
 
         // when
@@ -86,35 +82,36 @@ class TeamServiceImplJpaTest {
 
         // then
         assertThat(teamService.getAllTeams(null)).isEmpty();
-        assertThat(userRepository.count()).isEqualTo(4);
-        assertThat(userRepository.findByTeamIsNullOrderById()).hasSize(4);
+        assertThat(userRepository.count()).isEqualTo(10);
+        assertThat(userRepository.findByTeamIsNullOrderById()).hasSize(10);
     }
 
     @Test
-    @DisplayName("팀 단건 조회는 소속 팀원과 팀 ID를 함께 반환한다")
+    @DisplayName("팀 단건 조회는 소속 팀원 5명과 팀 ID를 함께 반환한다")
     void getOneTeamReturnsMembers() {
         // given
-        saveUsers(Tier.DIAMOND, Tier.GOLD);
+        saveUsers(10);
         flushAndClear();
-        Long teamId = teamService.teamRegister(new TeamAssignRequest(2)).get(0).id();
+        Long teamId = teamService.teamRegister().get(0).id();
         flushAndClear();
 
         // when
         TeamResponse found = teamService.getOneTeam(teamId);
 
         // then
-        assertThat(found.users()).hasSize(1);
-        assertThat(found.users()).extracting(UserResponse::teamId).containsExactly(teamId);
+        assertThat(found.users()).hasSize(5);
+        assertThat(found.users()).extracting(UserResponse::teamId).containsOnly(teamId);
     }
 
-    private void saveUsers(Tier... tiers) {
-        long base = userRepository.count();
-        for (int i = 0; i < tiers.length; i++) {
+    // 학번 S0, S1, ... 순서로 count명을 저장한다. 티어는 전체 티어를 돌아가며 배정한다.
+    private void saveUsers(int count) {
+        Tier[] tiers = Tier.values();
+        for (int i = 0; i < count; i++) {
             userRepository.save(User.builder()
-                    .studentNum("S" + (base + i))
-                    .name("참가자" + (base + i))
-                    .gameNickname("nick" + (base + i))
-                    .tier(tiers[i])
+                    .studentNum("S" + i)
+                    .name("참가자" + i)
+                    .gameNickname("nick" + i)
+                    .tier(tiers[i % tiers.length])
                     .password("ENCODED")
                     .build());
         }
