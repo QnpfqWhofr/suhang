@@ -1,3 +1,13 @@
 spring:
   application:
     name: dgsw-esport
+  datasource:
+    url: jdbc:h2:mem:esport
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    # 테이블 생성 후에 data.sql이 실행되도록 한다.
+    defer-datasource-initialization: true
