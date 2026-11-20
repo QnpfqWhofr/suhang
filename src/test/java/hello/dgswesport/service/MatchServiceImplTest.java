@@ -16,11 +16,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Sort;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,11 +51,11 @@ class MatchServiceImplTest {
     private MatchServiceImpl matchService;
 
     @Test
-    @DisplayName("팀 3개로 대진을 편성하면 1팀이 부전승으로 결승에 올라간다")
+    @DisplayName("팀 3개로 대진을 편성하면 한 팀이 부전승으로 결승에 올라가고 나머지 두 팀이 1경기를 치른다")
     void createMatches() {
         // given
         given(matchRepository.count()).willReturn(0L);
-        given(teamRepository.findAll(any(Sort.class))).willReturn(teams(3));
+        given(teamRepository.findAll()).willReturn(teams(3));
         given(competitionRepository.findTopByOrderByIdDesc()).willReturn(Optional.empty());
         given(competitionRepository.save(any(Competition.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -66,18 +67,38 @@ class MatchServiceImplTest {
         assertThat(responses).extracting(MatchResponse::round).containsExactly(1, 2);
 
         MatchResponse first = responses.get(0);
-        assertThat(first.team1().teamName()).isEqualTo("2팀");
-        assertThat(first.team2().teamName()).isEqualTo("3팀");
         assertThat(first.team1().bye()).isFalse();
+        assertThat(first.team2().bye()).isFalse();
 
         MatchResponse finalMatch = responses.get(1);
-        assertThat(finalMatch.team1().teamName()).isEqualTo("1팀");
         assertThat(finalMatch.team1().bye()).isTrue();
         assertThat(finalMatch.team2().teamId()).isNull();
         assertThat(finalMatch.team2().winnerOfMatchOrder()).isEqualTo(1);
 
+        // 어느 팀이 부전승인지는 무작위지만, 세 팀이 한 번씩만 배정된다.
+        assertThat(List.of(first.team1().teamName(), first.team2().teamName(), finalMatch.team1().teamName()))
+                .containsExactlyInAnyOrder("1팀", "2팀", "3팀");
+
         verify(competitionRepository).save(any(Competition.class));
         verify(matchRepository).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("부전승 팀은 무작위로 정해져 여러 번 편성하면 항상 같은 팀이 되지는 않는다")
+    void createMatchesPicksByeTeamRandomly() {
+        // given
+        given(matchRepository.count()).willReturn(0L);
+        given(teamRepository.findAll()).willReturn(teams(3));
+        given(competitionRepository.findTopByOrderByIdDesc()).willReturn(Optional.of(new Competition("대회")));
+
+        // when: 50번 편성한다. 세 팀 중 한 팀만 계속 부전승이 될 확률은 사실상 0이다.
+        Set<String> byeTeamNames = new HashSet<>();
+        for (int i = 0; i < 50; i++) {
+            byeTeamNames.add(matchService.createMatches().get(1).team1().teamName());
+        }
+
+        // then
+        assertThat(byeTeamNames).hasSizeGreaterThan(1);
     }
 
     @Test
@@ -85,7 +106,7 @@ class MatchServiceImplTest {
     void createMatchesReusesCompetition() {
         // given
         given(matchRepository.count()).willReturn(0L);
-        given(teamRepository.findAll(any(Sort.class))).willReturn(teams(2));
+        given(teamRepository.findAll()).willReturn(teams(2));
         given(competitionRepository.findTopByOrderByIdDesc()).willReturn(Optional.of(new Competition("대회")));
 
         // when
@@ -116,7 +137,7 @@ class MatchServiceImplTest {
     void createMatchesWithNotEnoughTeams() {
         // given
         given(matchRepository.count()).willReturn(0L);
-        given(teamRepository.findAll(any(Sort.class))).willReturn(teams(1));
+        given(teamRepository.findAll()).willReturn(teams(1));
 
         // when & then
         assertThatThrownBy(() -> matchService.createMatches())
