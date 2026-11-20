@@ -12,10 +12,11 @@ import hello.dgswesport.dto.MatchResponse;
 import hello.dgswesport.global.exception.BusinessException;
 import hello.dgswesport.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -39,11 +40,13 @@ public class MatchServiceImpl implements MatchService {
         if (matchRepository.count() > 0) {
             throw new BusinessException(ErrorCode.MATCHES_ALREADY_EXIST);
         }
-        // 팀 번호(ID)가 빠를수록 높은 시드로 본다.
-        List<Team> teams = teamRepository.findAll(Sort.by("id"));
+        List<Team> teams = new ArrayList<>(teamRepository.findAll());
         if (teams.size() < MIN_TEAM_COUNT) {
             throw new BusinessException(ErrorCode.NOT_ENOUGH_TEAMS);
         }
+        // 팀 번호는 만들어진 순서일 뿐 실력과 관계가 없으므로, 순서를 무작위로 섞어 시드를 정한다.
+        // 부전승은 앞선 시드부터 받으므로 어느 팀이 부전승이 될지도 편성할 때마다 달라진다.
+        Collections.shuffle(teams);
         Competition competition = competitionRepository.findTopByOrderByIdDesc()
                 .orElseGet(() -> competitionRepository.save(new Competition(COMPETITION_NAME)));
 

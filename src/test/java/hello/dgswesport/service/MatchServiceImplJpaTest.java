@@ -60,30 +60,34 @@ class MatchServiceImplJpaTest {
         assertThat(created).extracting(MatchResponse::id).doesNotContainNull();
         List<MatchResponse> found = matchService.getAllMatches();
         assertThat(found).extracting(MatchResponse::matchOrder).containsExactly(1, 2);
-        assertThat(found.get(0).team1().teamName()).isEqualTo("2팀");
-        assertThat(found.get(0).team2().teamName()).isEqualTo("3팀");
-        assertThat(found.get(1).team1().teamName()).isEqualTo("1팀");
         assertThat(found.get(1).team1().bye()).isTrue();
         assertThat(found.get(1).team2().winnerOfMatchOrder()).isEqualTo(1);
+        // 어느 팀이 부전승인지는 무작위지만, 세 팀이 한 번씩만 배정된다.
+        assertThat(List.of(found.get(0).team1().teamName(), found.get(0).team2().teamName(),
+                found.get(1).team1().teamName()))
+                .containsExactlyInAnyOrder("1팀", "2팀", "3팀");
     }
 
     @Test
     @DisplayName("유저 일정 조회는 그 유저의 팀이 배정된 경기만 반환한다")
     void getMatchesByUser() {
-        // given: 1팀은 부전승으로 2경기에, 3팀은 1경기에 배정된다
+        // given: 팀마다 유저 한 명씩. 부전승 팀은 2경기에만, 나머지 두 팀은 1경기에만 배정된다
         List<Team> teams = saveTeams(3);
-        User firstTeamUser = saveUser("S1", teams.get(0));
-        User thirdTeamUser = saveUser("S3", teams.get(2));
+        List<User> users = new ArrayList<>();
+        for (int i = 0; i < teams.size(); i++) {
+            users.add(saveUser("S" + (i + 1), teams.get(i)));
+        }
         User unassignedUser = saveUser("S9", null);
         flushAndClear();
-        matchService.createMatches();
+        Long byeTeamId = matchService.createMatches().get(1).team1().teamId();
         flushAndClear();
 
         // when & then
-        assertThat(matchService.getMatchesByUser(firstTeamUser.getId()))
-                .extracting(MatchResponse::matchOrder).containsExactly(2);
-        assertThat(matchService.getMatchesByUser(thirdTeamUser.getId()))
-                .extracting(MatchResponse::matchOrder).containsExactly(1);
+        for (int i = 0; i < teams.size(); i++) {
+            int expectedOrder = teams.get(i).getId().equals(byeTeamId) ? 2 : 1;
+            assertThat(matchService.getMatchesByUser(users.get(i).getId()))
+                    .extracting(MatchResponse::matchOrder).containsExactly(expectedOrder);
+        }
         assertThat(matchService.getMatchesByUser(unassignedUser.getId())).isEmpty();
     }
 
@@ -123,8 +127,8 @@ class MatchServiceImplJpaTest {
         assertThat(matchRepository.count()).isZero();
         List<MatchResponse> recreated = matchService.createMatches();
         assertThat(recreated).hasSize(1);
-        assertThat(recreated.get(0).team1().teamName()).isEqualTo("2팀");
-        assertThat(recreated.get(0).team2().teamName()).isEqualTo("3팀");
+        assertThat(List.of(recreated.get(0).team1().teamName(), recreated.get(0).team2().teamName()))
+                .containsExactlyInAnyOrder("2팀", "3팀");
     }
 
     // "1팀", "2팀", ... 순서로 count개를 저장한다.
